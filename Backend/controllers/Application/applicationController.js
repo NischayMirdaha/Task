@@ -1,4 +1,4 @@
-import Application from "../models/Application.js";
+import Application from "../../models/Application.js";
 
 // Submit application
 export const submitApplication = async (req, res) => {

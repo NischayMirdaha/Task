@@ -1,5 +1,6 @@
 import Land from "../../models/Land.js";
 import cloudinary from "../config/cloudinary.js";
+import fs from "fs";
 
 export const registerLand = async (req, res) => {
   try {
@@ -9,7 +10,9 @@ export const registerLand = async (req, res) => {
       areaUnit,
       district,
       ward,
-      landType
+      landType,
+      ownerName,
+      citizenshipNo
     } = req.body;
 
     if (!req.file) {
@@ -17,10 +20,15 @@ export const registerLand = async (req, res) => {
     }
 
     // Upload to Cloudinary
-    const uploadResult = await cloudinary.v2.uploader.upload(req.file.path, {
+    const uploadResult = await cloudinary.uploader.upload(req.file.path, {
       folder: "malpot/land-documents",
       resource_type: "auto"
     });
+
+    // Delete local file
+    if (fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
 
     const land = await Land.create({
       kittaNumber,
@@ -29,11 +37,15 @@ export const registerLand = async (req, res) => {
       district,
       ward,
       landType,
+      owner: {
+        name: ownerName,
+        citizenshipNo
+      },
       ownershipDocument: {
         public_id: uploadResult.public_id,
         url: uploadResult.secure_url
       },
-      createdBy: req.user.id // from auth middleware
+      createdBy: req.user.id
     });
 
     res.status(201).json({
@@ -41,6 +53,7 @@ export const registerLand = async (req, res) => {
       message: "Land registered successfully",
       land
     });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
