@@ -1,15 +1,14 @@
 import express from "express";
-import { registerLand } from "../controllers/Land/landController.js";
-import isAuthenticated from "../Middleware/authMiddleware.js";
-import { authenticate } from "../middlewares/authMiddleware.js";
 import { upload } from "../Middleware/multer.js";
+import { authenticate } from "../Middleware/authMiddleware.js";
 
 const router = express.Router();
 
 
+
 router.post(
   "/register",
-  isAuthenticated,
+  authenticate,
   upload.single("ownershipDocument"),
   registerLand
 );
