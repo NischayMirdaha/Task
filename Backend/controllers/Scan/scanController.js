@@ -4,15 +4,20 @@ import Land from "../../models/Land.js";
 
 export const scanMalpot = async (req, res) => {
   try {
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No document uploaded" });
+    }
+
     const imagePath = req.file.path;
 
-    // 1. Extract text
+    // 1️⃣ Extract text
     const text = await extractTextFromImage(imagePath);
 
-    // 2. Parse sections
+    // 2️⃣ Parse Malpot fields
     const data = parseMalpotData(text);
 
-    // 3. Save to database
+    // 3️⃣ Save to database
     const newLand = await Land.create(data);
 
     res.status(201).json({

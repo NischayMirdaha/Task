@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { scanMalpot } from "../controllers/scanController.js";
+import { scanMalpot } from "../controllers/Scan/scanController.js";
 
 const router = express.Router();
 
