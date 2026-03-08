@@ -1,61 +1,67 @@
 import mongoose from "mongoose";
 
-const wordSchema = new mongoose.Schema({
-  text: String,
-  confidence: Number
-}, { _id: false });
+const wordSchema = new mongoose.Schema(
+  { text: String, confidence: Number, bbox: mongoose.Schema.Types.Mixed },
+  { _id: false }
+);
+
+const lineSchema = new mongoose.Schema(
+  { text: String, confidence: Number },
+  { _id: false }
+);
 
 const scanDocumentSchema = new mongoose.Schema(
   {
-    fileName: {
+    fileName:  { type: String, required: true },
+    fileUrl:   { type: String, required: true },
+    fileType:  { type: String, enum: ["image", "pdf", "docx"], required: true },
+
+    // How it was captured
+    sourceType: {
       type: String,
-      required: true
+      enum: ["scanner", "fax", "photo", "auto"],
+      default: "auto",
     },
 
-    fileUrl: {
-      type: String,
-      required: true
-    },
+    // Raw OCR output
+    extractedText:  { type: String },
+    words:          [wordSchema],
+    ocrLines:       [lineSchema],
+    confidenceScore: { type: Number },
 
-    fileType: {
-      type: String,
-      enum: ["image", "pdf", "docx"],
-      required: true
-    },
-
-    extractedText: {
-      type: String
-    },
-
-    words: [wordSchema], // each detected word
-
+    // Parsed structured fields (schema matches your ScanDocument model)
     parsedData: {
-      kittaNumber: String,
-      district: String,
-      ward: String,
-      area: Number,
-      ownerName: String,
-      citizenshipNo: String
+      kittaNumber:   String,
+      district:      String,
+      ward:          String,
+      area:          Number,
+      ownerName:     String,
+      citizenshipNo: String,
     },
 
-    confidenceScore: {
-      type: Number // overall OCR confidence
-    },
+    // Signature detection
+    hasSignature:     { type: Boolean, default: false },
+    signatureUrl:     { type: String },              // Cloudinary URL of cropped signature
+    signatureBounds:  { type: mongoose.Schema.Types.Mixed }, // {top, left, width, height}
+    signatureDensity: { type: Number },              // % dark pixels — signature confidence
 
+    // Processing state
     status: {
       type: String,
       enum: ["Processing", "Completed", "Failed"],
-      default: "Processing"
+      default: "Processing",
     },
+    parseErrors: [{ type: String }],
 
-    relatedLand: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Land"
-    }
+    // Relations
+    relatedLand:  { type: mongoose.Schema.Types.ObjectId, ref: "Land" },
+    ownershipRef: { type: mongoose.Schema.Types.ObjectId, ref: "Ownership" },
+    uploadedBy:   { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
 );
 
-const ScanDocument = mongoose.model("ScanDocument", scanDocumentSchema);
+scanDocumentSchema.index({ status: 1, createdAt: -1 });
+scanDocumentSchema.index({ "parsedData.kittaNumber": 1, "parsedData.district": 1 });
 
-export default ScanDocument;
+export default mongoose.model("ScanDocument", scanDocumentSchema);
