@@ -11,7 +11,7 @@ import { isAuthenticated } from "../middlewares/isAuthenticated.js";
 const router = express.Router();
 
 
-// Submit transfer request
+// Submit transf er request
 router.post("/", isAuthenticated, createTransfer);
 
 // Get all transfers
