@@ -1,134 +1,132 @@
-import User from "../../models/usermodel.js";
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
-import dotenv from "dotenv";
+import User from "../../models/usermodel.js";
 
-dotenv.config(); // Ensure .env is loaded first
+const buildToken = (user) =>
+  jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+  });
 
-/* =========================
-   Validate environment variables
-========================= */
-if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-  console.error("ERROR: EMAIL_USER or EMAIL_PASS not set in .env");
-  process.exit(1);
-}
-
-/* =========================
-   Email Transporter
-========================= */
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // must be App Password
-  },
+const sanitizeUser = (user) => ({
+  id: user._id,
+  username: user.username,
+  email: user.email,
+  role: user.role,
+  createdAt: user.createdAt,
 });
 
-// verify smtp on startup
-transporter.verify((err, success) => {
-  if (err) console.error("SMTP ERROR:", err);
-  else console.log("SMTP READY ✅");
-});
-
-/* =========================
-   Generate OTP
-========================= */
-const generateOTP = () => Math.floor(100000 + Math.random() * 900000);
-
-/* =========================
-   Register User (Send OTP)
-========================= */
 export const registerUser = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, role, adminSecret } = req.body;
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser)
-      return res.status(400).json({ message: "Email already registered" });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const otp = generateOTP();
-
-    // SEND OTP EMAIL
-    try {
-      const info = await transporter.sendMail({
-        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-        to: email,
-        subject: "Verify your account",
-        html: `<h2>Your OTP: ${otp}</h2>`,
-      });
-
-      console.log("EMAIL SENT:", info.response);
-    } catch (mailErr) {
-      console.error("EMAIL FAILED:", mailErr);
-      return res.status(500).json({
-        message: "Failed to send OTP email",
-        error: mailErr.message,
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Username, email, and password are required.",
       });
     }
 
-    // CREATE USER
-    await User.create({
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered.",
+      });
+    }
+
+    let resolvedRole = "user";
+    if (role && role !== "user") {
+      if (
+        process.env.ADMIN_REGISTRATION_SECRET &&
+        adminSecret === process.env.ADMIN_REGISTRATION_SECRET
+      ) {
+        resolvedRole = role;
+      } else {
+        return res.status(403).json({
+          success: false,
+          message: "Only standard users can self-register without admin approval.",
+        });
+      }
+    }
+
+    const user = await User.create({
       username,
       email,
-      password: hashedPassword,
-      otp,
-      isOtpVerified: false,
+      password,
+      role: resolvedRole,
     });
 
-    res.status(201).json({ message: "User registered. OTP sent." });
+    const token = buildToken(user);
+
+    return res.status(201).json({
+      success: true,
+      message: "Registration successful.",
+      token,
+      user: sanitizeUser(user),
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Registration failed" });
+    return res.status(500).json({
+      success: false,
+      message: "Registration failed.",
+      error: error.message,
+    });
   }
 };
 
-/* =========================
-   Verify OTP
-========================= */
-export const verifyOtp = async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-
-    const user = await User.findOne({ email }).select("+otp +isOtpVerified");
-    if (!user || user.otp !== Number(otp))
-      return res.status(400).json({ message: "Invalid OTP" });
-
-    user.isOtpVerified = true;
-    user.otp = undefined;
-    await user.save();
-
-    res.json({ message: "Email verified successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "OTP verification failed" });
-  }
-};
-
-/* =========================
-   Login User
-========================= */
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email }).select("+password +isOtpVerified");
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required.",
+      });
+    }
 
-    if (!user.isOtpVerified)
-      return res.status(401).json({ message: "Verify email first" });
+    const user = await User.findOne({ email: email.toLowerCase() }).select(
+      "+password +isOtpVerified"
+    );
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Wrong password" });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
+    const isPasswordValid = await user.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password.",
+      });
+    }
+
+    const token = buildToken(user);
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful.",
+      token,
+      user: sanitizeUser(user),
     });
-
-    res.json({ token });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Login failed" });
+    return res.status(500).json({
+      success: false,
+      message: "Login failed.",
+      error: error.message,
+    });
   }
 };
+
+export const getCurrentUser = async (req, res) =>
+  res.status(200).json({
+    success: true,
+    user: sanitizeUser(req.user),
+  });
+
+export const verifyOtp = async (_req, res) =>
+  res.status(200).json({
+    success: true,
+    message: "OTP verification is currently optional for JWT auth.",
+  });
