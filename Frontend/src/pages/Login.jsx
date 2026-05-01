@@ -1,14 +1,48 @@
-import { Link } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, ScanText } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, ArrowRight, ScanText, AlertCircle, Loader2 } from 'lucide-react';
+import axios from 'axios';
 
 export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await axios.post('http://127.0.0.1:5000/api/auth/user/login', {
+        email,
+        password
+      });
+
+      if (response.data.success) {
+        localStorage.setItem('token', response.data.token);
+        // Dispatch event so other components might know, or simply navigate
+        window.dispatchEvent(new Event('authChange'));
+        navigate('/scan');
+      } else {
+        setError(response.data.message || 'Login failed');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'An error occurred during login');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="flex-1 flex min-h-full items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-50 relative overflow-hidden">
       <div className="absolute top-0 -left-4 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-2xl opacity-30 animate-blob"></div>
       <div className="absolute top-0 -right-4 w-72 h-72 bg-teal-300 rounded-full mix-blend-multiply filter blur-2xl opacity-30 animate-blob animation-delay-2000"></div>
       <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-2xl opacity-30 animate-blob animation-delay-4000"></div>
 
-      <div className="w-full max-w-md space-y-8 glass p-10 rounded-3xl shadow-xl relative z-10">
+      <div className="w-full max-w-md space-y-8 glass p-10 rounded-3xl shadow-xl relative z-10 bg-white/80 backdrop-blur-md">
         <div>
           <div className="mx-auto w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-600/30">
             <ScanText size={32} />
@@ -23,7 +57,15 @@ export default function Login() {
             </Link>
           </p>
         </div>
-        <form className="mt-8 space-y-6" action="#" method="POST">
+        
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700">
+            <AlertCircle className="shrink-0 mt-0.5" size={20} />
+            <p className="text-sm font-medium">{error}</p>
+          </div>
+        )}
+
+        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
           <div className="space-y-4 rounded-md shadow-sm">
             <div>
               <label htmlFor="email-address" className="sr-only">Email address</label>
@@ -37,7 +79,9 @@ export default function Login() {
                   type="email"
                   autoComplete="email"
                   required
-                  className="appearance-none rounded-xl relative block w-full px-3 py-4 pl-10 border border-slate-300 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-all"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="appearance-none rounded-xl relative block w-full px-3 py-4 pl-10 border border-slate-300 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-all bg-white/50"
                   placeholder="Email address"
                 />
               </div>
@@ -54,7 +98,9 @@ export default function Login() {
                   type="password"
                   autoComplete="current-password"
                   required
-                  className="appearance-none rounded-xl relative block w-full px-3 py-4 pl-10 border border-slate-300 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-all"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="appearance-none rounded-xl relative block w-full px-3 py-4 pl-10 border border-slate-300 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-all bg-white/50"
                   placeholder="Password"
                 />
               </div>
@@ -84,12 +130,26 @@ export default function Login() {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-4 px-4 border border-transparent text-sm font-semibold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all shadow-md hover:shadow-indigo-600/40"
+              disabled={isLoading}
+              className={`group relative w-full flex justify-center py-4 px-4 border border-transparent text-sm font-semibold rounded-xl text-white transition-all shadow-md ${
+                isLoading 
+                  ? 'bg-indigo-400 cursor-not-allowed' 
+                  : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-indigo-600/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
+              }`}
             >
-              Sign in
-              <span className="absolute right-4 inset-y-0 flex items-center">
-                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-              </span>
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="animate-spin" size={20} />
+                  Signing in...
+                </span>
+              ) : (
+                <>
+                  Sign in
+                  <span className="absolute right-4 inset-y-0 flex items-center">
+                    <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                  </span>
+                </>
+              )}
             </button>
           </div>
         </form>

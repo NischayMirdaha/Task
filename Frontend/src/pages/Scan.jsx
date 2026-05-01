@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import axios from 'axios';
-import { UploadCloud, FileType, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { UploadCloud, FileType, CheckCircle, AlertCircle, Loader2, ScanLine } from 'lucide-react';
 
 export default function Scan() {
   const [file, setFile] = useState(null);
@@ -52,7 +52,7 @@ export default function Scan() {
     try {
       // Using full URL to assume backend runs on 5000 or proxy if configured.
       // Adjust if backend is on a different domain.
-      const response = await axios.post('http://localhost:5000/api/scan', formData, {
+      const response = await axios.post('http://127.0.0.1:5000/api/scan', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setResult(response.data);

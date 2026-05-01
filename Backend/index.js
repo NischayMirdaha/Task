@@ -7,6 +7,7 @@ import landRoutes from "./route/landRoutes.js";
 import documentRoutes from "./route/documentRoutes.js";
 import transferRoutes from "./route/transferRoutes.js";
 import dashboardRoutes from "./route/dashboardRoutes.js";
+import scanRoutes from "./route/scanRoutes.js";
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use("/api", landRoutes);
 app.use("/api", documentRoutes);
 app.use("/api", transferRoutes);
 app.use("/api", dashboardRoutes);
+app.use("/api", scanRoutes);
 
 app.get("/", (_req, res) => {
   res.send("API running");

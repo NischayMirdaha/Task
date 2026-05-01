@@ -83,3 +83,17 @@ export const parseMalpotData = (rawText = "") => {
     languageDetected: detectLanguage(text),
   };
 };
+
+export const validateMalpotData = (parsedData = {}) => {
+  const errors = [];
+  
+  if (!parsedData.kittaNumber) {
+    errors.push("Missing Kitta Number");
+  }
+  if (!parsedData.ownerName) {
+    errors.push("Missing Owner Name");
+  }
+  
+  const isValid = errors.length === 0;
+  return { isValid, errors };
+};

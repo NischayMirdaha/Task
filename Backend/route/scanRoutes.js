@@ -29,7 +29,7 @@ const upload = multer({
 // GET    /api/scans/:id     — get single scan
 // DELETE /api/scans/:id     — delete scan
 
-router.post("/scan",      upload.single("document"), scanMalpot);
+router.post("/scan",      upload.single("file"), scanMalpot);
 router.get("/scans",      getAllScans);
 router.get("/scans/:id",  getScanById);
 router.delete("/scans/:id", deleteScan);
